@@ -58,3 +58,7 @@ The noise margin is specified by the `NOISE` macro defined at the top
 of `foaw.c`, and should be based the amplitude of noise observed in
 your position signal.  The `SR` macro should be set to your sample
 rate in order to get an accurate velocity estimate.
+
+The program `deriv` runs the FOAW routine on a stream of incoming
+ASCII-encoded floating-point values with parameters given as
+command-line arguments.
