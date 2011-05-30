@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
+__all__ = ['leastsquared', 'foaw', 'fast_foaw', 'median_filter']
+
 from pylab import *
 from scipy.signal import lfilter, butter
+import os, subprocess, threading
 
 # Least squared 15 (from Freedom6S API)
 def leastsquared(n=15):
@@ -42,6 +45,27 @@ def foaw(pos, sr, noise_max, n=16, best=False):
         result[k] = velocity
 
     return result
+
+def fast_foaw(pos, sr, noise_max, n=16, best=False):
+    """Run a faster version of FOAW by calling to C compiled code."""
+    path = '.'.join(__file__.split('.')[:-1]+['py'])
+    program = os.path.join(os.path.dirname(os.path.realpath(path)),'deriv')
+    cmd = [program, str(sr), str(noise_max), str(n), str(best and 1 or 0)]
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, close_fds=True)
+
+    def writer():
+        for i in pos:
+            print >>p.stdin, i
+        p.stdin.close()
+
+    t = threading.Thread(target=writer)
+    t.start()
+    out = []
+    for i in p.stdout:
+        out.append(float(i))
+    t.join()
+    return array(out)
 
 def median_filter(pos, n=5):
     result = zeros(len(pos))
