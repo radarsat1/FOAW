@@ -73,6 +73,40 @@ def median_filter(pos, n=5):
         result[k] = median(pos[k-min(n,k):k])
     return result
 
+# Levant's differentiator, from Levant A. (1998). "Robust exact
+# differentiation via sliding mode technique." Automatica, 34(3),
+# 379-384.  Suggested for use with force-feedback devices in Chawda et
+# al., "Application of Levant’s Differentiator for Velocity Estimation
+# and Increased Z-Width in Haptic Interfaces", WHC 2011.
+
+# Note that it's not very well-suited to the test data in this file
+# because it is sensitive to an estimate of maximum acceleration,
+# which in the case of this highly discontinuous velocity is very
+# large.  On sinusoidal test data it fairs much better, and gets
+# better as sampling rate increases (as opposed to the other
+# techniques here).
+
+# Moreover, the papers suggest that Lambda and alpha variables can be
+# better-tuned.
+
+def levant(pos, sr):
+    T = 1/sr
+    result = zeros(len(pos))
+    # Lipschitz's constant 'C' = maximum absolute acceleration
+    C = max(abs(vel[1:]-vel[:-1]))/T
+    # Coefficients derived from C
+    alpha = 1.1 * C
+    Lambda = sqrt(C)
+    x = 0
+    u1 = 0
+    for k in range(len(pos)):
+        e = x - pos[k]
+        u1 = u1 - alpha * sign(e) * T
+        u = u1 - Lambda * sqrt(abs(e)) * sign(e)
+        x = x + u * T
+        result[k] = u
+    return result
+
 # Plotting, velocity curves and derivatives
 def plotcurves(curves, titles, vel_yrange=None, dif_yrange=None):
     for n, v in enumerate(curves):
@@ -100,8 +134,13 @@ if __name__=="__main__":
                 + [-1.]*(3*r) + [-1.]*(20*r))
     time = arange(len(vel))/float(sr);
 
+    # Another interesting test signal
+    # vel = ((0.5+sin(time*50)*pow(2,-time*10))
+    #        *concatenate((ones(len(time)/2),
+    #                      zeros(len(time)/2))))
+
     # Integrate it to get position
-    pos = lfilter([1], [1,-1], vel)*T;
+    pos = lfilter([1], [1,-1], vel)*T
 
     # Add some noise
     pos = pos + rand(len(pos))*noise_max
@@ -110,7 +149,7 @@ if __name__=="__main__":
     fdvel = lfilter([1,-1],[1],pos)/T
 
     # Butterworth 100 Hz
-    [B,A] = butter(1, 0.1)
+    [B,A] = butter(1, 100/sr)
     bwvel = lfilter(B,A,fdvel)
 
     # FD skip 3
@@ -119,19 +158,23 @@ if __name__=="__main__":
 
     lsvel = lfilter(leastsquared(15), 1, pos)/T
 
+    levantvel = levant(pos, sr)
+
     endfitfoawvel = foaw(pos, sr, noise_max, n=16, best=False)
     bestfitfoawvel = foaw(pos, sr, noise_max, n=16, best=True)
     mpos = median_filter(pos, n=3)
     endfitfoawvelm = foaw(mpos, sr, noise_max, n=16, best=False)
     bestfitfoawvelm = foaw(mpos, sr, noise_max, n=16, best=True)
 
-    curves = [fdvel, fd3vel, bwvel, lsvel]
+    curves = [fdvel, fd3vel, bwvel, lsvel, levantvel]
     titles = ['Simple Finite Difference',
               'Finite difference 3',
               'Butterworth %d Hz'%(sr*0.1),
-              'Least Squared']
+              'Least Squared',
+              "Levant's Differentator"]
 
     figure(1)
+    clf()
     plotcurves(curves, titles, vel_yrange = [-1.5, 2.5],
                dif_yrange = [-0.3, 0.3])
 
@@ -140,6 +183,7 @@ if __name__=="__main__":
               'best-fit-FOAW w/ median']
 
     figure(2)
+    clf()
     plotcurves(curves, titles, vel_yrange = [-1.5, 2.5],
                dif_yrange = [-0.3, 0.3])
     show()
