@@ -76,7 +76,7 @@ def median_filter(pos, n=5):
 # Levant's differentiator, from Levant A. (1998). "Robust exact
 # differentiation via sliding mode technique." Automatica, 34(3),
 # 379-384.  Suggested for use with force-feedback devices in Chawda et
-# al., "Application of Levant’s Differentiator for Velocity Estimation
+# al., "Application of Levant's Differentiator for Velocity Estimation
 # and Increased Z-Width in Haptic Interfaces", WHC 2011.
 
 # Note that it's not very well-suited to the test data in this file
