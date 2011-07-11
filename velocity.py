@@ -191,7 +191,6 @@ if __name__=="__main__":
     clf()
     plotcurves(curves, titles, vel_yrange = [-1.5, 2.5],
                dif_yrange = [-0.3, 0.3])
-    show()
 
     figure(3)
     clf()
@@ -207,3 +206,5 @@ if __name__=="__main__":
     print 'bw2-300 error (%d Hz) ='%sr, sqrt(sum((bwvel[r:] - vel[r:])*(bwvel[r:] - vel[r:])))
     print 'levant error (%d Hz) ='%sr, sqrt(sum((levantvel[r:] - vel[r:])*(levantvel[r:] - vel[r:])))
     print 'fd error (%d Hz) ='%sr, sqrt(sum((fdvel[r:] - vel[r:])*(fdvel[r:] - vel[r:])))
+
+    show()
