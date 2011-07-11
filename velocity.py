@@ -188,3 +188,18 @@ if __name__=="__main__":
     plotcurves(curves, titles, vel_yrange = [-1.5, 2.5],
                dif_yrange = [-0.3, 0.3])
     show()
+
+    figure(3)
+    clf()
+    plot(vel, label='ideal')
+    plot(lsvel, label='ls')
+    plot(bestfitfoawvel, label='bf-foaw')
+    plot(levantvel, label='levant')
+    legend()
+
+    r = len(levantvel)/5
+    print 'bf-foaw error (%d Hz) ='%sr, sqrt(sum((bestfitfoawvel[r:] - vel[r:])*(bestfitfoawvel[r:] - vel[r:])))
+    print 'ef-foaw error (%d Hz) ='%sr, sqrt(sum((endfitfoawvel[r:] - vel[r:])*(endfitfoawvel[r:] - vel[r:])))
+    print 'bw2-300 error (%d Hz) ='%sr, sqrt(sum((bwvel[r:] - vel[r:])*(bwvel[r:] - vel[r:])))
+    print 'levant error (%d Hz) ='%sr, sqrt(sum((levantvel[r:] - vel[r:])*(levantvel[r:] - vel[r:])))
+    print 'fd error (%d Hz) ='%sr, sqrt(sum((fdvel[r:] - vel[r:])*(fdvel[r:] - vel[r:])))
