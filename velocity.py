@@ -127,7 +127,7 @@ if __name__=="__main__":
     sr = 1000.0;
     T = 1/sr;
     r = int(sr/100);
-    noise_max = 0.1*T;  # This is ||e_k||inf
+    noise_max = 1e-05;  # This is ||e_k||inf
 
     # Define a velocity curve
     vel = array([0.]*(15*r) + [1.]*(4*r) + [2.]*(25*r) + [0.]*(5*r)
