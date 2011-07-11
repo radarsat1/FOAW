@@ -149,8 +149,8 @@ if __name__=="__main__":
     # Finite difference
     fdvel = lfilter([1,-1],[1],pos)/T
 
-    # Butterworth 100 Hz
-    [B,A] = butter(1, 100/sr)
+    # Butterworth 300 Hz
+    [B,A] = butter(2, 300/(sr/2))
     bwvel = lfilter(B,A,fdvel)
 
     # FD skip 3
@@ -170,7 +170,7 @@ if __name__=="__main__":
     curves = [fdvel, fd3vel, bwvel, lsvel, levantvel]
     titles = ['Simple Finite Difference',
               'Finite difference 3',
-              'Butterworth %d Hz'%(sr*0.1),
+              'Butterworth 300 Hz',
               'Least Squared',
               "Levant's Differentator"]
 
