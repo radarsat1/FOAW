@@ -89,21 +89,25 @@ def median_filter(pos, n=5):
 # Moreover, the papers suggest that Lambda and alpha variables can be
 # better-tuned.
 
-def levant(pos, sr):
+def levant(pos, sr, n=1, C=None, alpha=None, Lambda=None):
     T = 1/sr
     result = zeros(len(pos))
     # Lipschitz's constant 'C' = maximum absolute acceleration
-    C = max(abs(vel[1:]-vel[:-1]))/T
+    if C == None:
+        C = max(abs(vel[1:]-vel[:-1]))/T
     # Coefficients derived from C
-    alpha = 1.1 * C
-    Lambda = sqrt(C)
+    if alpha == None:
+        alpha = 1.1 * C
+    if Lambda == None:
+        Lambda = sqrt(C)
     x = 0
     u1 = 0
     for k in range(len(pos)):
-        e = x - pos[k]
-        u1 = u1 - alpha * sign(e) * T
-        u = u1 - Lambda * sqrt(abs(e)) * sign(e)
-        x = x + u * T
+        for i in range(n):
+            e = x - pos[k]
+            u1 = u1 - alpha * sign(e) * T/n
+            u = u1 - Lambda * sqrt(abs(e)) * sign(e)
+            x = x + u * T/n
         result[k] = u
     return result
 
