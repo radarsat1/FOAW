@@ -135,7 +135,8 @@ if __name__=="__main__":
     time = arange(len(vel))/float(sr);
 
     # Another interesting test signal
-    # vel = ((0.5+sin(time*50)*pow(2,-time*10))
+    # vel = (((0.5+sin(time*50)*pow(2,-time*1))
+    #         + (0.2+sin(time*500)*0.2*pow(2,-time*1)))
     #        *concatenate((ones(len(time)/2),
     #                      zeros(len(time)/2))))
 
