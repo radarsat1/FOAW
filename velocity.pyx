@@ -1,10 +1,18 @@
 #!/usr/bin/env python
 
-__all__ = ['leastsquared', 'foaw', 'fast_foaw', 'median_filter', 'levant']
+__all__ = ['leastsquared', 'foaw', 'levant', 'median_filter']
 
 from pylab import *
 from scipy.signal import lfilter, butter
 import os, subprocess, threading
+
+cimport numpy as np
+cimport cython
+
+DTYPE = double
+ctypedef np.double_t DTYPE_t
+cdef inline DTYPE_t dmin(DTYPE_t x, DTYPE_t y): return x if x <= y else y
+cdef inline int imin(int x, int y): return x if x <= y else y
 
 # Least squared 15 (from Freedom6S API)
 def leastsquared(n=15):
@@ -13,12 +21,17 @@ def leastsquared(n=15):
     return (dTemp-arange(n))*dTemp2
 
 # First-Order Adaptive Windowing (FOAW)
-def foaw(pos, sr, noise_max, n=16, best=False):
-    T = 1/sr
-    result = zeros(len(pos))
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def foaw(np.ndarray[DTYPE_t] pos not None, double sr, double noise_max,
+                 int n=16, int best=False):
+    cdef double T = 1/sr
+    cdef np.ndarray[DTYPE_t] result = zeros(len(pos), dtype=DTYPE)
+    cdef int k, i, j, outside
+    cdef DTYPE_t b, ykj, velocity
     for k in range(len(pos)):
         velocity = 0
-        for i in range(1,min(n,k)):
+        for i in range(1,imin(n,k)):
             # Calculate slope over interval
             if (best):
                 # least squared method (best-fit-FOAW)
@@ -46,31 +59,17 @@ def foaw(pos, sr, noise_max, n=16, best=False):
 
     return result
 
-def fast_foaw(pos, sr, noise_max, n=16, best=False):
-    """Run a faster version of FOAW by calling to C compiled code."""
-    path = '.'.join(__file__.split('.')[:-1]+['py'])
-    program = os.path.join(os.path.dirname(os.path.realpath(path)),'deriv')
-    cmd = [program, str(sr), str(noise_max), str(n), str(best and 1 or 0)]
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, close_fds=True)
+# No need to call out to compiled C version in Cython, this one is
+# plenty fast.
+fast_foaw = foaw
 
-    def writer():
-        for i in pos:
-            print >>p.stdin, i
-        p.stdin.close()
-
-    t = threading.Thread(target=writer)
-    t.start()
-    out = []
-    for i in p.stdout:
-        out.append(float(i))
-    t.join()
-    return array(out)
-
-def median_filter(pos, n=5):
-    result = zeros(len(pos))
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def median_filter(np.ndarray[DTYPE_t] pos, int n=5):
+    cdef np.ndarray[DTYPE_t] result = zeros(len(pos), dtype=DTYPE)
+    cdef int k
     for k in range(1,len(pos)):
-        result[k] = median(pos[k-min(n,k):k])
+        result[k] = median(pos[k-imin(n,k):k])
     return result
 
 # Levant's differentiator, from Levant A. (1998). "Robust exact
@@ -92,18 +91,20 @@ def median_filter(pos, n=5):
 # Lipschitz's constant 'C' = maximum absolute acceleration, must be
 # provided.
 
-def levant(pos, sr, C, alpha=None, Lambda=None, n=1):
-    T = 1/sr
-    result = zeros(len(pos))
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def levant(np.ndarray[DTYPE_t] pos not None, DTYPE_t sr,
+           DTYPE_t C, _alpha=None, _Lambda=None, int n=1):
+    cdef DTYPE_t T = 1/sr
+    cdef np.ndarray[DTYPE_t] result = zeros(len(pos), dtype=DTYPE)
+    cdef DTYPE_t alpha, Lambda
     # Coefficients derived from C
-    if alpha == None:
-        alpha = 1.1 * C
-    if Lambda == None:
-        Lambda = sqrt(C)
-    x = 0
-    u1 = 0
-    for k in range(len(pos)):
-        for i in range(n):
+    alpha = 1.1 * C if _alpha==None else _alpha
+    Lambda = sqrt(C) if _Lambda==None else _Lambda
+    cdef DTYPE_t x = 0, u1 = 0, e, u
+    cdef int k, i
+    for k in xrange(len(pos)):
+        for i in xrange(n):
             e = x - pos[k]
             u1 = u1 - alpha * sign(e) * T/n
             u = u1 - Lambda * sqrt(abs(e)) * sign(e)
@@ -125,3 +126,48 @@ def plotcurves(curves, titles, vel_yrange=None, dif_yrange=None):
         if (dif_yrange!=None):
             axis([time[0],time[-1],dif_yrange[0],dif_yrange[1]])
         title(titles[n]+': ideal difference')
+
+if __name__=="__main__":
+    # Constants
+    sr = 1000.0;
+    T = 1/sr;
+    r = int(sr/100);
+    noise_max = 1e-05;  # This is ||e_k||inf
+
+    # Define a velocity curve
+    vel = array([0.]*(15*r) + [1.]*(4*r) + [2.]*(25*r) + [0.]*(5*r)
+                + [-1.]*(3*r) + [-1.]*(20*r))
+    time = arange(len(vel))/float(sr);
+
+    # Another interesting test signal
+    # vel = (((0.5+sin(time*50)*pow(2,-time*1))
+    #         + (0.2+sin(time*500)*0.2*pow(2,-time*1)))
+    #        *concatenate((ones(len(time)/2),
+    #                      zeros(len(time)/2))))
+
+    # Integrate it to get position
+    pos = lfilter([1], [1,-1], vel)*T
+
+    # Add some noise
+    pos = pos + rand(len(pos))*noise_max
+
+    # Finite difference
+    fdvel = lfilter([1,-1],[1],pos)/T
+
+    # Butterworth 300 Hz
+    [B,A] = butter(2, 300/(sr/2))
+    bwvel = lfilter(B,A,fdvel)
+
+    # FD skip 3
+    dist = 3
+    fd3vel = lfilter(array([1]+[0]*(dist-1)+[-1])/float(dist),[1],pos)/T
+
+    lsvel = lfilter(leastsquared(15), 1, pos)/T
+
+    levantvel = levant(pos, sr)
+
+    endfitfoawvel = foaw(pos, sr, noise_max, n=16, best=False)
+    bestfitfoawvel = foaw(pos, sr, noise_max, n=16, best=True)
+    mpos = median_filter(pos, n=3)
+    endfitfoawvelm = foaw(mpos, sr, noise_max, n=16, best=False)
+    bestfitfoawvelm = foaw(mpos, sr, noise_max, n=16, best=True)
