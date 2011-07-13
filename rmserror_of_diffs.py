@@ -31,6 +31,7 @@ def do_rms_for_methods(sr, vel, noise_max):
     lsvel = lfilter(leastsquared(15), 1, pos)/T
 
     levantC = C=max(abs(vel[1:]-vel[:-1]))/T
+    print 'Lipschitz\'s constant C = %f, sr = %f'%(levantC,sr)
     levantvel1 = levant(pos, sr, C=levantC, rk=1)
     levantvel2 = levant(pos, sr, C=levantC, rk=2)
     levantvel4 = levant(pos, sr, C=levantC, rk=4)
