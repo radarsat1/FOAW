@@ -1,161 +1,141 @@
 #!/usr/bin/env python
 
-nonoise = {
-    'bf_foaw': [
-        (1000, 1.32774115627),
-        (2000, 1.57053129128),
-        (4000, 1.82674136086),
-        (6000, 1.95130610252),
-        (8000, 2.00325458749),
-        (10000, 2.02856099853),
-        (20000, 1.97130582541),
-        (30000, 1.78952274777),
-        (40000, 1.5716431353),
-        (60000, 1.28363010487),
-        (80000, 1.11176869255),
-        ],
-
-    'ef_foaw': [
-        (1000, 1.31173763315),
-        (2000, 1.5597197555),
-        (4000, 1.81320487315),
-        (6000, 1.93942790844),
-        (8000, 1.99743525553),
-        (10000, 2.02446447215),
-        (20000, 1.97008010722),
-        (30000, 1.78903071459),
-        (40000, 1.57145189171),
-        (60000, 1.28356317751),
-        (80000, 1.111737297),
-        ],
-
-    'bw2_300': [
-        (1000, 0.747731013254),
-        (2000, 1.41569409876),
-        (4000, 2.11983481211),
-        (6000, 2.62248663381),
-        (8000, 3.03873697759),
-        (10000, 3.40285675248),
-        (20000, 4.82259588511),
-        (30000, 5.90875271984),
-        (40000, 6.82376459729),
-        (60000, 8.35817252117),
-        (80000, 9.65150609633),
-        ],
-
-    'levant': [
-        (1000, 4.62133839322),
-        (2000, 3.33416203585),
-        (4000, 2.3726659879),
-        (6000, 1.9395293061),
-        (8000, 1.68033487327),
-        (10000, 1.50347153765),
-        (20000, 1.06460293728),
-        (30000, 0.868943637063),
-        (40000, 0.752870101968),
-        (60000, 0.614645084646),
-        (80000, 0.532157510702),
-        ],
-
-    'fd': [
-        (1000, 6.92756569861e-13),
-        (2000, 1.94861079309e-12),
-        (4000, 5.30263746799e-12),
-        (6000, 1.0018659412e-11),
-        (8000, 1.54675409614e-11),
-        (10000, 2.18739242229e-11),
-        (20000, 6.11766706204e-11),
-        (30000, 1.06952964753e-10),
-        (40000, 1.73016384066e-10),
-        (60000, 3.02807705854e-10),
-        (80000, 4.92406627357e-10),
-        ]
-    }
-
-withnoise = {
-    'bf-foaw': [
-        (1000, 0.11105065853),
-        (2000, 0.447894002458),
-        (4000, 0.887440259509),
-        (6000, 1.21250619477),
-        (8000, 1.46339589416),
-        (10000, 1.66555973997),
-        (20000, 2.01653974513),
-        (40000, 1.81933123856),
-        (60000, 2.21203205624),
-        (80000, 2.97096342413),
-        ],
-
-    'ef-foaw': [
-        (1000, 0.111354138728),
-        (2000, 0.445776278731),
-        (4000, 0.861121680309),
-        (6000, 1.14580524733),
-        (8000, 1.37646012745),
-        (10000, 1.54082245751),
-        (20000, 1.99606690309),
-        (40000, 2.26983020539),
-        (60000, 3.31659212623),
-        (80000, 4.80479643989),
-        ],
-
-    'bw2-300': [
-        (1000, 0.750860446257),
-        (2000, 1.41598771804),
-        (4000, 2.1186520319),
-        (6000, 2.6219985668),
-        (8000, 3.04136408233),
-        (10000, 3.40309123253),
-        (20000, 4.82061390827),
-        (40000, 6.82355380161),
-        (60000, 8.36021985236),
-        (80000, 9.65195423655),
-        ],
-
-    'levant': [
-        (1000, 4.61884380496),
-        (2000, 3.35614037888),
-        (4000, 2.52427220737),
-        (6000, 2.35514508884),
-        (8000, 2.33339559386),
-        (10000, 2.36069812642),
-        (20000, 2.67614912705),
-        (40000, 3.2757775508),
-        (60000, 3.83384722155),
-        (80000, 4.28632411867),
-        ],
-
-    'fd': [
-        (1000, 0.0967324534123),
-        (2000, 0.282519689459),
-        (4000, 0.768272993298),
-        (6000, 1.46000169212),
-        (8000, 2.19716931783),
-        (10000, 3.11726488157),
-        (20000, 8.76201949634),
-        (40000, 24.6965574601),
-        (60000, 45.7156605372),
-        (80000, 70.2852809889),
-        ]
-    }
-
 from pylab import *
+from scipy.signal import *
+from velocity import *
+from collections import defaultdict
+from pprint import pprint
 
-rc('legend',fontsize=8)
+def do_rms_for_methods(sr, vel, noise_max):
+    # Constants
+    T = 1/sr;
+    r = int(sr/100);
 
-def do_plot(results):
-    marks = 'o^s+D'
+    # Integrate it to get position
+    pos = lfilter([1], [1,-1], vel)*T
+
+    # Add some noise
+    pos = pos + rand(len(pos))*noise_max
+
+    # Finite difference
+    fdvel = lfilter([1,-1],[1],pos)/T
+
+    # Butterworth 300 Hz
+    [B,A] = butter(2, 300/(sr/2))
+    bwvel = lfilter(B,A,fdvel)
+
+    # FD skip 3
+    dist = 3
+    fd3vel = lfilter(array([1]+[0]*(dist-1)+[-1])/float(dist),[1],pos)/T
+
+    lsvel = lfilter(leastsquared(15), 1, pos)/T
+
+    levantC = C=max(abs(vel[1:]-vel[:-1]))/T
+    levantvel1 = levant(pos, sr, C=levantC, rk=1)
+    levantvel2 = levant(pos, sr, C=levantC, rk=2)
+    levantvel4 = levant(pos, sr, C=levantC, rk=4)
+
+    endfitfoawvel = foaw(pos, sr, noise_max, n=16, best=False)
+    bestfitfoawvel = foaw(pos, sr, noise_max, n=16, best=True)
+    mpos = median_filter(pos, n=3)
+    endfitfoawvelm = foaw(mpos, sr, noise_max, n=16, best=False)
+    bestfitfoawvelm = foaw(mpos, sr, noise_max, n=16, best=True)
+
+    def rms(x):
+        return sqrt(sum((x[r:] - vel[r:])*(x[r:] - vel[r:])))
+
+    r = len(levantvel1)/5
+    return {'bf-foaw16': (sr, rms(bestfitfoawvel)),
+            'ef-foaw16': (sr, rms(endfitfoawvel)),
+            'bw2-300': (sr, rms(bwvel)),
+            'levant1': (sr, rms(levantvel1)),
+            'levant2': (sr, rms(levantvel2)),
+            'levant4': (sr, rms(levantvel4)),
+            'fd': (sr, rms(fdvel))}
+
+def do_plot(results, name):
+    marks = 'o^s+D'*10
     for i, algo in enumerate(sort(results.keys())):
         loglog(*zip(*results[algo]), marker=marks[i], label=algo)
-        xlim(1000, 80000)
-        ylim(0.5, 10)
+        xlim(1000, 100000)
+        xlabel('sampling rate (Hz)')
+        ylabel('RMS error')
         legend()
+        title(name)
 
-figure(1)
-clf()
-do_plot(nonoise)
-title('no noise')
-figure(2)
-clf()
-do_plot(withnoise)
-title('with noise = 1e-5')
+    print
+    print name
+    print '-'*len(name)
+    print
+    pprint(dict(results))
+    savefig(name.replace(' ','_')+'.png')
+
+if __name__=="__main__":
+    rc('legend',fontsize=8)
+
+    rates = [1000, 2000, 4000, 6000, 8000,
+             10000, 20000, 40000, 60000, 80000, 100000]
+
+    # Two sinusoids without noise
+    def genvel(sr,t):
+        time = arange(sr*t)/float(sr);
+        return time, (((0.5+sin(time*50)*pow(2,-time*10))
+                       + (0.2+sin(time*500)*0.2*pow(2,-time*10))))
+    figure(1)
+    clf()
+    results = defaultdict(lambda: [])
+    for sr in rates:
+        time, vel = genvel(sr,1)
+        res = do_rms_for_methods(float(sr), vel, noise_max=0)
+        for r in res:
+            results[r].append(res[r])
+    do_plot(results, 'two sinusoids without noise')
+
+    # Two sinusoids with noise
+    def genvel(sr,t):
+        time = arange(sr*t)/float(sr);
+        return time, ((0.5+sin(time*50)*pow(2,-time*10))
+                      + (0.2+sin(time*500)*0.2*pow(2,-time*10)))
+    figure(2)
+    clf()
+    results = defaultdict(lambda: [])
+    for sr in rates:
+        time, vel = genvel(sr,1)
+        res = do_rms_for_methods(float(sr), vel, noise_max=1e-05)
+        for r in res:
+            results[r].append(res[r])
+    do_plot(results, 'two sinusoids with noise = 1e-05')
+
+    # Two sinusoids with low noise
+    def genvel(sr,t):
+        time = arange(sr*t)/float(sr);
+        return time, ((0.5+sin(time*50)*pow(2,-time*10))
+                      + (0.2+sin(time*500)*0.2*pow(2,-time*10)))
+    figure(3)
+    clf()
+    results = defaultdict(lambda: [])
+    for sr in rates:
+        time, vel = genvel(sr,1)
+        res = do_rms_for_methods(float(sr), vel, noise_max=1e-06)
+        for r in res:
+            results[r].append(res[r])
+    do_plot(results, 'two sinusoids with noise = 1e-06')
+
+    # Two sinusoids + noise + discontinuity
+    def genvel(sr,t):
+        time = arange(sr*t)/float(sr);
+        return time, (((0.5+sin(time*50)*pow(2,-time*10))
+                       + (0.2+sin(time*500)*0.2*pow(2,-time*10)))
+                      *concatenate((ones(len(time)/2),
+                                    zeros(len(time)/2))))
+    figure(4)
+    clf()
+    results = defaultdict(lambda: [])
+    for sr in rates:
+        time, vel = genvel(sr,1)
+        res = do_rms_for_methods(float(sr), vel, noise_max=1e-05)
+        for r in res:
+            results[r].append(res[r])
+    do_plot(results, 'two sinusoids + noise=1e-05 + discontinuity')
+
+    show()
