@@ -93,23 +93,49 @@ def median_filter(np.ndarray[DTYPE_t] pos, int n=5):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+cdef inline np.ndarray[DTYPE_t] f(DTYPE_t alpha, DTYPE_t Lambda,
+                                  DTYPE_t p, DTYPE_t u1, DTYPE_t x):
+    cdef DTYPE_t e = x-p
+    return array([ -alpha * sign(e),
+                    u1-Lambda * sqrt(abs(e)) * sign(e) ])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def levant(np.ndarray[DTYPE_t] pos not None, DTYPE_t sr,
-           DTYPE_t C, _alpha=None, _Lambda=None, int n=1):
+           DTYPE_t C, _alpha=None, _Lambda=None, int rk=1):
     cdef DTYPE_t T = 1/sr
     cdef np.ndarray[DTYPE_t] result = zeros(len(pos), dtype=DTYPE)
-    cdef DTYPE_t alpha, Lambda
     # Coefficients derived from C
-    alpha = 1.1 * C if _alpha==None else _alpha
-    Lambda = sqrt(C) if _Lambda==None else _Lambda
-    cdef DTYPE_t x = 0, u1 = 0, e, u
+    cdef DTYPE_t alpha = 1.1 * C if _alpha==None else _alpha
+    cdef DTYPE_t Lambda = sqrt(C) if _Lambda==None else _Lambda
+    cdef DTYPE_t x = 0, u1 = 0, u
+    cdef DTYPE_t k1du1, k1dx, k2du1, k2dx, k3du1, k3dx, k4du1, k4dx, tu1, tx
     cdef int k, i
-    for k in xrange(len(pos)):
-        for i in xrange(n):
-            e = x - pos[k]
-            u1 = u1 - alpha * sign(e) * T/n
-            u = u1 - Lambda * sqrt(abs(e)) * sign(e)
-            x = x + u * T/n
-        result[k] = u
+    if rk==4:
+        for k in range(len(pos)):
+            k1du1, k1dx = f(alpha,Lambda,pos[k], u1, x)
+            k2du1, k2dx = f(alpha,Lambda,pos[k], u1+(T/2)*k1du1, x+(T/2)*k1dx)
+            k3du1, k3dx = f(alpha,Lambda,pos[k], u1+(T/2)*k2du1, x+(T/2)*k2dx)
+            k4du1, k4dx = f(alpha,Lambda,pos[k], u1+T*k3du1, x+T*k3dx)
+            u1 = u1 + (T/6)*(k1du1 + 2*k2du1 + 2*k3du1 + k4du1)
+            u = (1.0/6)*(k1dx + 2*k2dx + 2*k3dx + k4dx)
+            x = x + u*T
+            result[k] = u
+    elif rk==2:
+        for k in range(len(pos)):
+            k1du1, k1dx = f(alpha,Lambda,pos[k],u1,x)
+            tu1 = u1 + k1du1*(T/2)
+            tx = x + k1dx*(T/2)
+            k2du1, k2dx = f(alpha,Lambda,pos[k],tu1,tx)
+            u1 = u1 + k2du1*T
+            x = x + k2dx*T
+            result[k] = k2dx
+    elif rk==1:
+        for k in range(len(pos)):
+            k1du1, k1dx = f(alpha,Lambda,pos[k],u1,x)
+            u1 = u1 + k1du1*T
+            x = x + k1dx*T
+            result[k] = k1dx
     return result
 
 # Plotting, velocity curves and derivatives

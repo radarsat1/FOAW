@@ -92,7 +92,12 @@ def median_filter(pos, n=5):
 # Lipschitz's constant 'C' = maximum absolute acceleration, must be
 # provided.
 
-def levant(pos, sr, C, alpha=None, Lambda=None, n=1):
+def f(alpha,Lambda,p,u1,x):
+    e = x-p
+    return array([ -alpha * sign(e),
+                    u1-Lambda * sqrt(abs(e)) * sign(e) ])
+
+def levant(pos, sr, C, alpha=None, Lambda=None, rk=1):
     T = 1/sr
     result = zeros(len(pos))
     # Coefficients derived from C
@@ -102,13 +107,31 @@ def levant(pos, sr, C, alpha=None, Lambda=None, n=1):
         Lambda = sqrt(C)
     x = 0
     u1 = 0
-    for k in range(len(pos)):
-        for i in range(n):
-            e = x - pos[k]
-            u1 = u1 - alpha * sign(e) * T/n
-            u = u1 - Lambda * sqrt(abs(e)) * sign(e)
-            x = x + u * T/n
-        result[k] = u
+    if rk==4:
+        for k in range(len(pos)):
+            k1du1, k1dx = f(alpha,Lambda,pos[k], u1, x)
+            k2du1, k2dx = f(alpha,Lambda,pos[k], u1+(T/2)*k1du1, x+(T/2)*k1dx)
+            k3du1, k3dx = f(alpha,Lambda,pos[k], u1+(T/2)*k2du1, x+(T/2)*k2dx)
+            k4du1, k4dx = f(alpha,Lambda,pos[k], u1+T*k3du1, x+T*k3dx)
+            u1 = u1 + (T/6)*(k1du1 + 2*k2du1 + 2*k3du1 + k4du1)
+            u = (1.0/6)*(k1dx + 2*k2dx + 2*k3dx + k4dx)
+            x = x + u*T
+            result[k] = u
+    elif rk==2:
+        for k in range(len(pos)):
+            k1du1, k1dx = f(alpha,Lambda,pos[k],u1,x)
+            tu1 = u1 + k1du1*(T/2)
+            tx = x + k1dx*(T/2)
+            k2du1, k2dx = f(alpha,Lambda,pos[k],tu1,tx)
+            u1 = u1 + k2du1*T
+            x = x + k2dx*T
+            result[k] = k2dx
+    elif rk==1:
+        for k in range(len(pos)):
+            k1du1, k1dx = f(alpha,Lambda,pos[k],u1,x)
+            u1 = u1 + k1du1*T
+            x = x + k1dx*T
+            result[k] = k1dx
     return result
 
 # Plotting, velocity curves and derivatives

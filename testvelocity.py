@@ -55,7 +55,9 @@ if __name__=="__main__":
 
     lsvel = lfilter(leastsquared(15), 1, pos)/T
 
-    levantvel = levant(pos, sr, C=max(abs(vel[1:]-vel[:-1]))/T)
+    levantvel1 = levant(pos, sr, C=max(abs(vel[1:]-vel[:-1]))/T, rk=1)
+    levantvel2 = levant(pos, sr, C=max(abs(vel[1:]-vel[:-1]))/T, rk=2)
+    levantvel4 = levant(pos, sr, C=max(abs(vel[1:]-vel[:-1]))/T, rk=4)
 
     endfitfoawvel = foaw(pos, sr, noise_max, n=16, best=False)
     bestfitfoawvel = foaw(pos, sr, noise_max, n=16, best=True)
@@ -63,12 +65,11 @@ if __name__=="__main__":
     endfitfoawvelm = foaw(mpos, sr, noise_max, n=16, best=False)
     bestfitfoawvelm = foaw(mpos, sr, noise_max, n=16, best=True)
 
-    curves = [fdvel, fd3vel, bwvel, lsvel, levantvel]
+    curves = [fdvel, fd3vel, bwvel, lsvel]
     titles = ['Simple Finite Difference',
               'Finite difference 3',
               'Butterworth 300 Hz',
-              'Least Squared',
-              "Levant's Differentator"]
+              'Least Squared']
 
     figure(1)
     clf()
@@ -84,19 +85,36 @@ if __name__=="__main__":
     plotcurves(curves, titles, vel_yrange = [-1.5, 2.5],
                dif_yrange = [-0.3, 0.3])
 
+    curves = [levantvel1, levantvel2, levantvel4]
+    titles = ['Levant RK=1',
+              'Levant RK=2',
+              'Levant RK=4']
+
     figure(3)
+    clf()
+    plotcurves(curves, titles, vel_yrange = [-1.5, 2.5],
+               dif_yrange = [-0.3, 0.3])
+
+    figure(4)
     clf()
     plot(vel, label='ideal')
     plot(lsvel, label='ls')
     plot(bestfitfoawvel, label='bf-foaw')
-    plot(levantvel, label='levant')
+    plot(levantvel1, label='levant1')
+    plot(levantvel2, label='levant2')
+    plot(levantvel4, label='levant4')
     legend()
 
-    r = len(levantvel)/5
-    print 'bf-foaw error (%d Hz) ='%sr, sqrt(sum((bestfitfoawvel[r:] - vel[r:])*(bestfitfoawvel[r:] - vel[r:])))
-    print 'ef-foaw error (%d Hz) ='%sr, sqrt(sum((endfitfoawvel[r:] - vel[r:])*(endfitfoawvel[r:] - vel[r:])))
-    print 'bw2-300 error (%d Hz) ='%sr, sqrt(sum((bwvel[r:] - vel[r:])*(bwvel[r:] - vel[r:])))
-    print 'levant error (%d Hz) ='%sr, sqrt(sum((levantvel[r:] - vel[r:])*(levantvel[r:] - vel[r:])))
-    print 'fd error (%d Hz) ='%sr, sqrt(sum((fdvel[r:] - vel[r:])*(fdvel[r:] - vel[r:])))
+    def rms(x):
+        return sqrt(sum((x[r:] - vel[r:])*(x[r:] - vel[r:])))
+
+    r = len(levantvel1)/5
+    print 'bf-foaw error (%d Hz) ='%sr, rms(bestfitfoawvel)
+    print 'ef-foaw error (%d Hz) ='%sr, rms(endfitfoawvel)
+    print 'bw2-300 error (%d Hz) ='%sr, rms(bwvel)
+    print 'levant1 error (%d Hz) ='%sr, rms(levantvel1)
+    print 'levant2 error (%d Hz) ='%sr, rms(levantvel2)
+    print 'levant4 error (%d Hz) ='%sr, rms(levantvel4)
+    print 'fd error (%d Hz) ='%sr, rms(fdvel)
 
     show()
