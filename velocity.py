@@ -4,7 +4,7 @@ __all__ = ['leastsquared', 'foaw', 'fast_foaw', 'median_filter', 'levant']
 
 from pylab import *
 from scipy.signal import lfilter, butter
-import os, subprocess, threading
+import os, subprocess, threading, ctypes
 
 # Least squared 15 (from Freedom6S API)
 def leastsquared(n=15):
@@ -48,24 +48,31 @@ def foaw(pos, sr, noise_max, n=16, best=False):
 
 def fast_foaw(pos, sr, noise_max, n=16, best=False):
     """Run a faster version of FOAW by calling to C compiled code."""
+    result = ascontiguousarray(zeros(pos.shape[0], dtype='f8'))
+
     path = '.'.join(__file__.split('.')[:-1]+['py'])
-    program = os.path.join(os.path.dirname(os.path.realpath(path)),'deriv')
-    cmd = [program, str(sr), str(noise_max), str(n), str(best and 1 or 0)]
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, close_fds=True)
+    lib = os.path.join(os.path.dirname(os.path.realpath(path)),'cvelocity.so')
+    cv = ctypes.cdll.LoadLibrary(lib)
 
-    def writer():
-        for i in pos:
-            print >>p.stdin, i
-        p.stdin.close()
+    array_1d_double = ctypeslib.ndpointer(dtype=double,
+                                          ndim=1, flags='CONTIGUOUS')
+    if best:
+        cv.foaw_best_fit.argtypes = [ctypes.c_double, ctypes.c_int,
+                                     ctypes.c_double,
+                                     array_1d_double, array_1d_double,
+                                     ctypes.c_int]
+        cv.foaw_best_fit.restype = None
 
-    t = threading.Thread(target=writer)
-    t.start()
-    out = []
-    for i in p.stdout:
-        out.append(float(i))
-    t.join()
-    return array(out)
+        cv.foaw_best_fit(sr, n, noise_max, pos, result, pos.shape[0])
+    else:
+        cv.foaw_end_fit.argtypes = [ctypes.c_double, ctypes.c_int,
+                                     ctypes.c_double,
+                                     array_1d_double, array_1d_double,
+                                     ctypes.c_int]
+        cv.foaw_end_fit.restype = None
+
+        cv.foaw_end_fit(sr, n, noise_max, pos, result, pos.shape[0])
+    return result
 
 def median_filter(pos, n=5):
     result = zeros(len(pos))
@@ -132,6 +139,23 @@ def levant(pos, sr, C, alpha=None, Lambda=None, rk=1):
             u1 = u1 + k1du1*T
             x = x + k1dx*T
             result[k] = k1dx
+    return result
+
+def fast_levant(pos, sr, C, rk):
+    """Run a faster version of Levant's differentiator by calling to C compiled code."""
+    result = ascontiguousarray(zeros(pos.shape[0], dtype='f8'))
+
+    path = '.'.join(__file__.split('.')[:-1]+['py'])
+    lib = os.path.join(os.path.dirname(os.path.realpath(path)),'cvelocity.so')
+    cv = ctypes.cdll.LoadLibrary(lib)
+
+    array_1d_double = ctypeslib.ndpointer(dtype=double,
+                                          ndim=1, flags='CONTIGUOUS')
+    cv.levant.argtypes = [ctypes.c_double, ctypes.c_double, ctypes.c_int,
+                          array_1d_double, array_1d_double, ctypes.c_int]
+    cv.levant.restype = None
+
+    cv.levant(sr, C, rk, pos, result, pos.shape[0])
     return result
 
 # Plotting, velocity curves and derivatives
