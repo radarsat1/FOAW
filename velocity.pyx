@@ -13,6 +13,7 @@ DTYPE = double
 ctypedef np.double_t DTYPE_t
 cdef inline DTYPE_t dmin(DTYPE_t x, DTYPE_t y): return x if x <= y else y
 cdef inline int imin(int x, int y): return x if x <= y else y
+cdef inline DTYPE_t dsign(DTYPE_t x): return -1.0 if x < 0.0 else 1.0
 
 # Least squared 15 (from Freedom6S API)
 def leastsquared(n=15):
@@ -91,13 +92,32 @@ def median_filter(np.ndarray[DTYPE_t] pos, int n=5):
 # Lipschitz's constant 'C' = maximum absolute acceleration, must be
 # provided.
 
+def init_tbl():
+    sqrttbl = zeros((100,3))
+    for n,i in enumerate(arange(100)/100.0):
+        x = linspace(i,i+0.01,100)
+        sqrttbl[n,:] = polyfit(x,sqrt(x),2)
+    return sqrttbl
+cdef sqrttbl = init_tbl()
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef inline np.ndarray[DTYPE_t] f(DTYPE_t alpha, DTYPE_t Lambda,
-                                  DTYPE_t p, DTYPE_t u1, DTYPE_t x):
+cdef inline DTYPE_t tbl_sqrt(DTYPE_t x):
+    cdef np.ndarray[DTYPE_t] c
+    if x>=0 and x<1:
+        c = sqrttbl[int(x*100)]
+        return x*x*c[0]+x*c[1]+c[2]
+    else:
+        return sqrt(x)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef inline void f(DTYPE_t alpha, DTYPE_t Lambda,
+                   DTYPE_t p, DTYPE_t u1, DTYPE_t x,
+                   DTYPE_t *du1, DTYPE_t *dx):
     cdef DTYPE_t e = x-p
-    return array([ -alpha * sign(e),
-                    u1-Lambda * sqrt(abs(e)) * sign(e) ])
+    du1[0] = -alpha * dsign(e)
+    dx[0] = u1-Lambda * tbl_sqrt(abs(e)) * dsign(e)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -110,29 +130,29 @@ def levant(np.ndarray[DTYPE_t] pos not None, DTYPE_t sr,
     cdef DTYPE_t Lambda = sqrt(C) if _Lambda==None else _Lambda
     cdef DTYPE_t x = 0, u1 = 0, u
     cdef DTYPE_t k1du1, k1dx, k2du1, k2dx, k3du1, k3dx, k4du1, k4dx, tu1, tx
-    cdef int k, i
+    cdef int k
     if rk==4:
         for k in range(len(pos)):
-            k1du1, k1dx = f(alpha,Lambda,pos[k], u1, x)
-            k2du1, k2dx = f(alpha,Lambda,pos[k], u1+(T/2)*k1du1, x+(T/2)*k1dx)
-            k3du1, k3dx = f(alpha,Lambda,pos[k], u1+(T/2)*k2du1, x+(T/2)*k2dx)
-            k4du1, k4dx = f(alpha,Lambda,pos[k], u1+T*k3du1, x+T*k3dx)
+            f(alpha,Lambda,pos[k], u1, x, &k1du1, &k1dx)
+            f(alpha,Lambda,pos[k], u1+(T/2)*k1du1, x+(T/2)*k1dx, &k2du1, &k2dx)
+            f(alpha,Lambda,pos[k], u1+(T/2)*k2du1, x+(T/2)*k2dx, &k3du1, &k3dx)
+            f(alpha,Lambda,pos[k], u1+T*k3du1, x+T*k3dx, &k4du1, &k4dx)
             u1 = u1 + (T/6)*(k1du1 + 2*k2du1 + 2*k3du1 + k4du1)
             u = (1.0/6)*(k1dx + 2*k2dx + 2*k3dx + k4dx)
             x = x + u*T
             result[k] = u
     elif rk==2:
         for k in range(len(pos)):
-            k1du1, k1dx = f(alpha,Lambda,pos[k],u1,x)
+            f(alpha,Lambda,pos[k],u1,x,&k1du1,&k1dx)
             tu1 = u1 + k1du1*(T/2)
             tx = x + k1dx*(T/2)
-            k2du1, k2dx = f(alpha,Lambda,pos[k],tu1,tx)
+            f(alpha,Lambda,pos[k],tu1,tx, &k2du1, &k2dx)
             u1 = u1 + k2du1*T
             x = x + k2dx*T
             result[k] = k2dx
     elif rk==1:
         for k in range(len(pos)):
-            k1du1, k1dx = f(alpha,Lambda,pos[k],u1,x)
+            f(alpha,Lambda,pos[k],u1,x,&k1du1,&k1dx)
             u1 = u1 + k1du1*T
             x = x + k1dx*T
             result[k] = k1dx
