@@ -53,7 +53,7 @@ if __name__=="__main__":
     dist = 3
     fd3vel = lfilter(array([1]+[0]*(dist-1)+[-1])/float(dist),[1],pos)/T
 
-    lsvel = lfilter(leastsquared(15), 1, pos)/T
+    lsvel = lfilter(leastsquares(15), 1, pos)/T
 
     levantvel1 = levant(pos, sr, C=max(abs(vel[1:]-vel[:-1]))/T, rk=1)
     levantvel2 = levant(pos, sr, C=max(abs(vel[1:]-vel[:-1]))/T, rk=2)
@@ -69,7 +69,7 @@ if __name__=="__main__":
     titles = ['Simple Finite Difference',
               'Finite difference 3',
               'Butterworth 300 Hz',
-              'Least Squared']
+              'Least Squares']
 
     figure(1)
     clf()

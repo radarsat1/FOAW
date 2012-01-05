@@ -4,13 +4,24 @@ __all__ = ['leastsquared', 'foaw', 'fast_foaw', 'median_filter', 'levant']
 
 from pylab import *
 from scipy.signal import lfilter, butter
+from scipy.linalg import inv
 import os, subprocess, threading, ctypes
 
-# Least squared 15 (from Freedom6S API)
-def leastsquared(n=15):
-    dTemp = (n - 1) / 2.0;
-    dTemp2 = 12.0/ (n * ((n*n) - 1));
-    return (dTemp-arange(n))*dTemp2
+def leastsquares(N=1,M=15):
+    """Least squares estimator, Brown et al., "Analysis of Algorithms
+for Velocity Estimation from Discrete Position Versus Time Data." IEEE
+Trans. on Industrial Electronics, 39(1), Feb. 1992.
+
+    N: Degree of polynomial to approximate.  (1 or 2 is usually sufficient.)
+
+    M: Number of points of history to consider, affects the time
+    response and noise rejection.
+    """
+    A = (array([range(1,M+1)]*(N+1)).T) ** array([arange(N+1)]*M)
+    Aplus = dot(inv(dot(A.T,A)),A.T)
+    qdot = arange(N+1)*concatenate(([0],M**arange(N)))
+    hdot = dot(qdot,Aplus)
+    return squeeze(hdot)
 
 # First-Order Adaptive Windowing (FOAW)
 def foaw(pos, sr, noise_max, n=16, best=False):
