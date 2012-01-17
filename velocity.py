@@ -21,7 +21,7 @@ Trans. on Industrial Electronics, 39(1), Feb. 1992.
     Aplus = dot(inv(dot(A.T,A)),A.T)
     qdot = arange(N+1)*concatenate(([0],M**arange(N)))
     hdot = dot(qdot,Aplus)
-    return squeeze(hdot)
+    return squeeze(hdot)[::-1]
 
 # First-Order Adaptive Windowing (FOAW)
 def foaw(pos, sr, noise_max, n=16, best=False):
