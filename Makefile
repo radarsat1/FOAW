@@ -11,4 +11,4 @@ velocity.c: velocity.pyx
 	cython $<
 
 cvelocity.so: cvelocity.c
-	gcc -Wall -Werror -O3 -shared -fPIC cvelocity.so cvelocity.c
+	gcc -Wall -Werror -O3 -shared -fPIC -o cvelocity.so cvelocity.c
