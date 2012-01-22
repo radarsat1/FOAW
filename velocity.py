@@ -88,7 +88,24 @@ def fast_foaw(pos, sr, noise_max, n=16, best=False):
 def median_filter(pos, n=5):
     result = zeros(len(pos))
     for k in range(1,len(pos)):
-        result[k] = median(pos[k-min(n,k):k])
+        result[k] = median(pos[max(k-n,0):k])
+    return result
+
+def fast_median_filter(pos, n=5):
+    """Run a faster median filter by calling to C compiled code."""
+    result = ascontiguousarray(zeros(pos.shape[0], dtype='f8'))
+
+    path = '.'.join(__file__.split('.')[:-1]+['py'])
+    lib = os.path.join(os.path.dirname(os.path.realpath(path)),'cvelocity.so')
+    cv = ctypes.cdll.LoadLibrary(lib)
+
+    array_1d_double = ctypeslib.ndpointer(dtype=double,
+                                          ndim=1, flags='CONTIGUOUS')
+    cv.median_filter.argtypes = [ctypes.c_int, array_1d_double,
+                                 array_1d_double, ctypes.c_int]
+    cv.median_filter.restype = None
+
+    cv.median_filter(n, pos, result, pos.shape[0])
     return result
 
 # Levant's differentiator, from Levant A. (1998). "Robust exact

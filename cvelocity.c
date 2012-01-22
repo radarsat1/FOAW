@@ -298,3 +298,26 @@ void levant(TFLOAT sr, TFLOAT C, int rk,
         printf("[levant] Unknown rk==%d\n", rk);
     }
 }
+
+/******** Median filter *********/
+
+static int tfloatcomp(const void *a, const void *b)
+{
+    if (*(const TFLOAT*)a < *(const TFLOAT*)b)
+        return -1;
+    else
+        return *(const TFLOAT*)a > *(const TFLOAT*)b;
+}
+
+void median_filter(unsigned int n, TFLOAT *pos, TFLOAT *result, int size)
+{
+    int i;
+    TFLOAT buf[n], med[n];
+    memset(buf, 0, sizeof(buf));
+    for (i=0; i<size; i++) {
+        buf[i%n] = pos[i];
+        memcpy(med, buf, sizeof(buf));
+        qsort(med, n, sizeof(TFLOAT), tfloatcomp);
+        result[i] = med[n/2];
+    }
+}
