@@ -186,6 +186,22 @@ def fast_levant(pos, sr, C, rk):
     cv.levant(sr, C, rk, pos, result, pos.shape[0])
     return result
 
+def maxmin(x, n=3):
+    r = []
+    for i in range(n):
+        r.append((max(x[max(0,i-n):i+1])+min(x[max(0,i-n):i+1]))/2)
+    for y in zip(*[x[n-j:-j or None] for j in range(n)]):
+        r.append((max(y)+min(y))/2)
+    return r
+
+def avgfilt(x, n=3):
+    r = []
+    for i in range(n):
+        r.append(average(x[max(0,i-n):i+1]))
+    for y in zip(*[x[n-j:-j or None] for j in range(n)]):
+        r.append(average(y))
+    return r
+
 # Plotting, velocity curves and derivatives
 def plotcurves(curves, titles, vel_yrange=None, dif_yrange=None):
     for n, v in enumerate(curves):
