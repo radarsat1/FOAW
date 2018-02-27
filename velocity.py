@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__all__ = ['leastsquared', 'foaw', 'fast_foaw', 'median_filter', 'levant']
+__all__ = ['leastsquares', 'foaw', 'fast_foaw', 'median_filter', 'levant']
 
 from pylab import *
 from scipy.signal import lfilter, butter

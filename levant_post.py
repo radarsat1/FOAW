@@ -10,10 +10,10 @@ sr = 10000.0
 t = arange(int(sr))/sr
 f0 = 10
 p = cos(t*2*pi*f0)*exp(-t*0.5)
-v = lfilter([1,-1],1,p)*sr[2:]
+v = lfilter([1,-1],1,p)*sr
 noise = uniform(-0.001,0.001,len(t))
 
-C = max(lfilter([1,-1],1,v)*sr[2:])
+C = max(lfilter([1,-1],1,v)*sr)
 n = 70
 
 lv = velocity.levant(C=C,sr=sr,pos=p+noise)
@@ -27,8 +27,11 @@ plot(t,v)
 plot(t,lv)
 
 subplot(2,1,2)
-plot(t[4900:5100],v[4900:5100])
-plot(t[4900:5100],lv[4900:5100])
-plot(t[4900:5100],v2[4900:5100])
-plot(t[4900:5100],v3[4900:5100])
-plot(t[4900:5100],v4[4900:5100])
+plot(t[4900:5100],v[4900:5100], label='true vel')
+plot(t[4900:5100],lv[4900:5100], label='levant')
+plot(t[4900:5100],v2[4900:5100], label='avgfilt')
+plot(t[4900:5100],v3[4900:5100], label='maxmin')
+plot(t[4900:5100],v4[4900:5100], label='bw')
+legend()
+
+show()
